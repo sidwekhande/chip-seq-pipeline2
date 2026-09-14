@@ -242,6 +242,9 @@ workflow chip {
         Float call_peak_spp_disk_factor = 5.0
         Float call_peak_macs2_disk_factor = 30.0
 
+        Int qc_report_mem_gb = 4
+        Int qc_report_disk_gb = 50
+
         String? align_trimmomatic_java_heap
         String? filter_picard_java_heap
         String? gc_bias_picard_java_heap
@@ -1006,6 +1009,16 @@ workflow chip {
             description: 'Multiplication factor to determine persistent disk size for task macs2_signal_track.',
             group: 'resource_parameter',
             help: 'This factor will be multiplied to the size of TAG-ALIGNs (BEDs) to determine required disk size of instance on GCP/AWS.'
+        }
+        qc_report_mem_gb: {
+            description: 'Memory (GB) required for task qc_report.',
+            group: 'resource_parameter',
+            help: 'Increase this if task qc_report fails due to insufficient memory.'
+        }
+        qc_report_disk_gb: {
+            description: 'Persistent disk size (GB) required for task qc_report.',
+            group: 'resource_parameter',
+            help: 'Task qc_report localizes all NODUP_BAMs and TAG-ALIGNs (BEDs) from all replicates/controls to pass them through as pipeline outputs. Increase this if the task runs out of disk space.'
         }
         align_trimmomatic_java_heap: {
             description: 'Maximum Java heap (java -Xmx) in task align.',
@@ -2164,7 +2177,10 @@ workflow chip {
         
         idr_peaks_conservative_op = reproducibility_idr.conservative_peak,
         overlap_peaks_conservative_op = reproducibility_overlap.conservative_peak,
-        
+
+        mem_gb = qc_report_mem_gb,
+        disk_gb = qc_report_disk_gb,
+
         runtime_environment = runtime_environment
     }
 
@@ -3142,6 +3158,9 @@ task qc_report {
         File? idr_peaks_conservative_op
         File? overlap_peaks_conservative_op
 
+        Int mem_gb
+        Int disk_gb
+
         RuntimeEnvironment runtime_environment
     }
 
@@ -3224,14 +3243,14 @@ task qc_report {
     }
     runtime {
         cpu : 1
-        memory : '4 GB'
+        memory : '${mem_gb} GB'
         time : 4
-        disks : 'local-disk 50 SSD'
+        disks : 'local-disk ${disk_gb} SSD'
 
         docker : runtime_environment.docker
         singularity : runtime_environment.singularity
         conda : runtime_environment.conda
-    }    
+    }
 }
 
 ### workflow system tasks
